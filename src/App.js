@@ -1,9 +1,12 @@
-import React, { Component } from "react";
+import * as React from "react";
 import styled, { keyframes } from "styled-components";
 import Sound from "react-sound";
 
-import "./App.css";
 import coverImage from "./starboy-the-weekend-cover.jpg";
+import PlayIcon from "./svgs/play-icon.svg";
+import PauseIcon from "./svgs/pause-icon.svg";
+import PrevIcon from "./svgs/prev-icon.svg";
+import NextIcon from "./svgs/next-icon.svg";
 
 const AppView = styled.div`
   display: flex;
@@ -13,8 +16,10 @@ const AppView = styled.div`
   width: 100vw;
 `;
 
+/** Top view  */
+
 const TopView = styled.div`
-  flex: 0.66;
+  flex: 1;
 
   display: flex;
   justify-content: center;
@@ -28,22 +33,14 @@ const TopView = styled.div`
     content: "";
     background: url(${coverImage});
     background-size: cover;
-    filter: blur(0.2em);
+    background-position: center;
+    filter: blur(0.25em);
 
     position: absolute;
-    width: 100%;
-    height: 100%;
+    width: 105%;
+    height: 105%;
     z-index: -1;
   }
-`;
-
-const BottomView = styled.div`
-  flex: 0.36;
-  background: rgb(100, 100, 128);
-
-  display: flex;
-  flex-flow: column nowrap;
-  align-items: center;
 `;
 
 const Disc = styled.div`
@@ -78,6 +75,86 @@ const RootDisc = styled(Disc)`
       : `transform: rotate(${props.angle}deg);`};
 `;
 
+/** Middle view  */
+
+const MiddleView = styled.div`
+  width: 100%;
+  height: 0.25em;
+
+  background: red;rgb(100, 100, 128);
+
+  position: relative;
+`;
+
+const TimerView = styled.div`
+  width: 10vw;
+  height: 1em;
+
+  position: absolute;
+  left: 0.5em;
+  top: -1.1em;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: white;
+
+  font-size: 1em;
+  text-align: left;
+`;
+
+const TimeCursor = styled.div`
+  width: 4px;
+  height: 8px;
+
+  position: relative;
+  left: ${props => props.position || "0"};
+  top: -2px;
+
+  background: white;
+`;
+
+const RemainingView = styled(TimerView)`
+  width: 42px;
+  left: calc(100vw - 42px - 0.5em);
+  top: -1.1em;
+
+  text-align: right;
+`;
+
+/** Bottom view  */
+
+const BottomView = styled.div`
+  flex: 0.5;
+
+  width: 100vw;
+  background: rgb(32, 32, 32);
+
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+
+  overflow: hidden;
+  white-space: nowrap;
+`;
+
+const TitleView = styled.div`
+  flex: 1;
+
+  width: 100vw;
+  height: 2em;
+  margin-left: 0.25em;
+
+  color: white;
+  text-align: center;
+  font-size: 2em;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
 const HorizontalGroup = styled.div`
   width: 100%;
 
@@ -94,42 +171,17 @@ const Button = styled.button`
 
   font-size: 32px;
   font-weight: bold;
-`;
 
-const TimerView = styled.div`
-  flex: 1;
-
-  width: 100vw;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  color: lightgrey;
-
-  font-size: 64px;
-`;
-
-const TitleView = styled.div`
-  flex: 1;
-
-  width: 100vw;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  color: white;
-
-  font-size: 64px;
+  background: #f1f1f1;
 `;
 
 const angleFromSeconds = seconds => (360 * seconds) / 30;
-const formatTimer = s => {
-  const seconds = Math.round(s % 60);
-  const minutes = Math.round(s / 60);
+const formatTimer = (rawSeconds, reverse) => {
+  const secs = reverse ? Math.abs(rawSeconds - reverse) : rawSeconds;
+  const seconds = Math.round(secs % 60);
+  const minutes = Math.floor(secs / 60);
 
-  let formattedTimer = "";
+  let formattedTimer = reverse ? "-" : "";
 
   if (minutes < 10) {
     formattedTimer += "0";
@@ -146,7 +198,7 @@ const formatTimer = s => {
   return formattedTimer;
 };
 
-class Timer extends Component {
+class Timer extends React.Component {
   timerHandle = null;
   componentDidMount() {
     this.timerHandle = requestAnimationFrame(this.tick);
@@ -165,11 +217,13 @@ class Timer extends Component {
     const timer =
       this.props.offset +
       Math.round((Date.now() - this.props.playTimestamp) / 1000);
-    return formatTimer(timer);
+    return formatTimer(timer, this.props.reverse);
   }
 }
 
-class App extends Component {
+class App extends React.Component {
+  appRef = React.createRef();
+
   state = {
     play: false,
     playTimestamp: 0,
@@ -185,13 +239,15 @@ class App extends Component {
         const duration =
           prev.duration + (Date.now() - prev.playTimestamp) / 1000;
         return {
-          play,
+          play: false,
           duration
         };
       }
 
+      const isFinished = prev.duration >= 273;
+
       return {
-        play,
+        play: !isFinished,
         playTimestamp: Date.now()
       };
     });
@@ -209,10 +265,11 @@ class App extends Component {
 
   handleNext = () => {
     this.setState(prev => {
+      const nextDuration = prev.duration + 30;
+      const isFinished = nextDuration >= 273;
       return {
-        play: false,
-        duration: 0,
-        playTimestamp: 0
+        play: isFinished ? false : prev.play,
+        duration: isFinished ? 273 : prev.duration + 30
       };
     });
   };
@@ -220,17 +277,20 @@ class App extends Component {
   render() {
     const { play } = this.state;
 
-    const timer = play ? (
-      <Timer
-        offset={this.state.duration}
-        playTimestamp={this.state.playTimestamp}
-      />
-    ) : (
-      formatTimer(this.state.duration)
-    );
+    const timer = (time, reverse) =>
+      play ? (
+        <Timer
+          reverse={reverse}
+          offset={time}
+          playTimestamp={this.state.playTimestamp}
+        />
+      ) : (
+        formatTimer(time, reverse)
+      );
 
-    // playStatus={play ? Sound.status.PLAYING : Sound.status.PAUSED}
-    // playFromPosition={this.state.duration * 1000}
+    const screenWidth =
+      (this.appRef.clientRect && this.appRef.clientRect.innerWidth) || 0;
+    const cursorPosition = (this.state.duration * screenWidth) / 273;
 
     const soundProps = {
       playStatus: play ? Sound.status.PLAYING : Sound.status.PAUSED,
@@ -238,7 +298,7 @@ class App extends Component {
     };
 
     return (
-      <AppView>
+      <AppView ref={this.appRef}>
         <Sound autoLoad={true} volume={50} url={"test.mp3"} {...soundProps} />
         <TopView>
           <RootDisc
@@ -256,13 +316,23 @@ class App extends Component {
             </Disc>
           </RootDisc>
         </TopView>
+        <MiddleView>
+          <TimeCursor position={cursorPosition} />
+          <TimerView>{timer(this.state.duration)}</TimerView>
+          <RemainingView>{timer(this.state.duration, 273)}</RemainingView>
+        </MiddleView>
         <BottomView>
-          <TimerView>{timer}</TimerView>
           <TitleView>Starboy - The weekend</TitleView>
           <HorizontalGroup>
-            <Button onClick={this.handleBack}>{"<<"}</Button>
-            <Button onClick={this.handlePlay}>{play ? "||" : ">"}</Button>
-            <Button onClick={this.handleNext}>{">>"}</Button>
+            <Button onClick={this.handleBack}>
+              <img src={PrevIcon} />
+            </Button>
+            <Button onClick={this.handlePlay}>
+              {play ? <img src={PauseIcon} /> : <img src={PlayIcon} />}
+            </Button>
+            <Button onClick={this.handleNext}>
+              <img src={NextIcon} />
+            </Button>
           </HorizontalGroup>
         </BottomView>
       </AppView>
