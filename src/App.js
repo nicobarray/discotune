@@ -87,7 +87,7 @@ const MiddleView = styled.div`
 `;
 
 const TimerView = styled.div`
-  width: 10vw;
+  width: 42px;
   height: 1em;
 
   position: absolute;
@@ -109,7 +109,7 @@ const TimeCursor = styled.div`
   height: 8px;
 
   position: relative;
-  left: ${props => props.position || "0"};
+  left: ${props => props.position || "0"}px;
   top: -2px;
 
   background: white;
@@ -197,8 +197,10 @@ const formatTimer = (rawSeconds, reverse) => {
 
   return formattedTimer;
 };
+const currentTime = (offset, playTimestamp) =>
+  offset + Math.round((Date.now() - playTimestamp) / 1000);
 
-class Timer extends React.Component {
+class TickedChild extends React.Component {
   timerHandle = null;
   componentDidMount() {
     this.timerHandle = requestAnimationFrame(this.tick);
@@ -214,10 +216,7 @@ class Timer extends React.Component {
   };
 
   render() {
-    const timer =
-      this.props.offset +
-      Math.round((Date.now() - this.props.playTimestamp) / 1000);
-    return formatTimer(timer, this.props.reverse);
+    return this.props.children();
   }
 }
 
@@ -279,18 +278,17 @@ class App extends React.Component {
 
     const timer = (time, reverse) =>
       play ? (
-        <Timer
-          reverse={reverse}
-          offset={time}
-          playTimestamp={this.state.playTimestamp}
-        />
+        <TickedChild>
+          {() =>
+            formatTimer(
+              currentTime(this.state.duration, this.state.playTimestamp),
+              reverse
+            )
+          }
+        </TickedChild>
       ) : (
         formatTimer(time, reverse)
       );
-
-    const screenWidth =
-      (this.appRef.clientRect && this.appRef.clientRect.innerWidth) || 0;
-    const cursorPosition = (this.state.duration * screenWidth) / 273;
 
     const soundProps = {
       playStatus: play ? Sound.status.PLAYING : Sound.status.PAUSED,
@@ -317,7 +315,21 @@ class App extends React.Component {
           </RootDisc>
         </TopView>
         <MiddleView>
-          <TimeCursor position={cursorPosition} />
+          {/* TODO: Use lerp here with Popmotion/Reanimated like lib. */}
+          <TickedChild>
+            {() => {
+              const screenWidth =
+                (this.appRef.clientRect && this.appRef.clientRect.innerWidth) ||
+                0;
+              const timer = currentTime(
+                this.state.duration,
+                this.state.playTimestamp
+              );
+              const cursorPosition =
+                ((!play ? this.state.duration : timer) * 320) / 273;
+              return <TimeCursor position={cursorPosition} />;
+            }}
+          </TickedChild>
           <TimerView>{timer(this.state.duration)}</TimerView>
           <RemainingView>{timer(this.state.duration, 273)}</RemainingView>
         </MiddleView>
