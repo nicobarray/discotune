@@ -2,11 +2,24 @@ import * as React from "react";
 import styled, { keyframes } from "styled-components";
 import Sound from "react-sound";
 
-import coverImage from "./starboy-the-weekend-cover.jpg";
+import song1Cove from "./covers/song1.jpg";
 import PlayIcon from "./svgs/play-icon.svg";
 import PauseIcon from "./svgs/pause-icon.svg";
 import PrevIcon from "./svgs/prev-icon.svg";
 import NextIcon from "./svgs/next-icon.svg";
+
+const store = [
+  {
+    name: "Starboy - The Weekend",
+    cover: require("./covers/song1.jpg"),
+    music: "song1.mp3"
+  },
+  {
+    name: "DJ Medhi - Signatune",
+    cover: require("./covers/song2.jpg"),
+    music: "song2.mp3"
+  }
+];
 
 const AppView = styled.div`
   display: flex;
@@ -19,19 +32,17 @@ const AppView = styled.div`
 /** Top view  */
 
 const TopView = styled.div`
-  flex: 1;
+  flex: 0.9;
 
   display: flex;
   justify-content: center;
   align-items: center;
 
   position: relative;
-
   overflow: hidden;
-
   ::before {
     content: "";
-    background: url(${coverImage});
+    background: url(${props => props.cover});
     background-size: cover;
     background-position: center;
     filter: blur(0.25em);
@@ -47,7 +58,7 @@ const Disc = styled.div`
   width: ${props => props.size || "50%"};
   height: ${props => props.size || "50%"};
 
-  background: ${props => props.background || `url(${coverImage})`};
+  background: ${props => props.background || `url(${props.cover})`};
   background-size: contain;
 
   border-radius: 50%;
@@ -91,8 +102,8 @@ const TimerView = styled.div`
   height: 1em;
 
   position: absolute;
-  left: 0.5em;
-  top: -1.1em;
+  left: 0;
+  top: 4.5em;
 
   display: flex;
   justify-content: center;
@@ -100,8 +111,14 @@ const TimerView = styled.div`
 
   color: white;
 
-  font-size: 1em;
   text-align: left;
+  font-size: 0.5em;
+`;
+
+const RemainingView = styled(TimerView)`
+  left: calc(100vw - 42px);
+
+  text-align: right;
 `;
 
 const TimeCursor = styled.div`
@@ -112,21 +129,38 @@ const TimeCursor = styled.div`
   left: ${props => props.position || "0"}px;
   top: -2px;
 
-  background: white;
+  background: #d1d1d1;
+  border-bottom: red 2px solid;
 `;
 
-const RemainingView = styled(TimerView)`
-  width: 42px;
-  left: calc(100vw - 42px - 0.5em);
-  top: -1.1em;
+const TitleView = styled.div`
+  width: 100vw;
+  height: 3em;
 
-  text-align: right;
+  padding: 0.25em;
+
+  position: absolute;
+  left: 0;
+  top: -3em;
+
+  background: rgba(42, 32, 32, 0.8);
+
+  color: white;
+  text-align: center;
+  font-size: 1.5em;
+  font-family: "Yanone Kaffeesatz";
+  font-style: italic;
+  font-weight: lighter;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 /** Bottom view  */
 
 const BottomView = styled.div`
-  flex: 0.5;
+  flex: 0.1;
 
   width: 100vw;
   background: rgb(32, 32, 32);
@@ -137,22 +171,6 @@ const BottomView = styled.div`
 
   overflow: hidden;
   white-space: nowrap;
-`;
-
-const TitleView = styled.div`
-  flex: 1;
-
-  width: 100vw;
-  height: 2em;
-  margin-left: 0.25em;
-
-  color: white;
-  text-align: center;
-  font-size: 2em;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 `;
 
 const HorizontalGroup = styled.div`
@@ -227,7 +245,8 @@ class App extends React.Component {
     play: false,
     playTimestamp: 0,
     pauseTimestamp: 0,
-    duration: 0
+    duration: 0,
+    tuneIndex: 1
   };
 
   handlePlay = () => {
@@ -254,27 +273,35 @@ class App extends React.Component {
 
   handleBack = () => {
     this.setState(prev => {
+      const tuneIndex =
+        prev.tuneIndex - 1 < 0 ? store.length - 1 : prev.tuneIndex - 1;
+
       return {
         play: false,
         duration: 0,
-        playTimestamp: 0
+        playTimestamp: 0,
+        tuneIndex: prev.playTimestamp === 0 ? tuneIndex : prev.tuneIndex
       };
     });
   };
 
+  // TODO: Lerp disc rotation.
   handleNext = () => {
     this.setState(prev => {
-      const nextDuration = prev.duration + 30;
+      const nextDuration = prev.duration + 10;
       const isFinished = nextDuration >= 273;
       return {
         play: isFinished ? false : prev.play,
-        duration: isFinished ? 273 : prev.duration + 30
+        duration: isFinished ? 0 : prev.duration + 10,
+        tuneIndex: isFinished
+          ? (prev.tuneIndex + 1) % store.length
+          : prev.tuneIndex
       };
     });
   };
 
   render() {
-    const { play } = this.state;
+    const { play, tuneIndex } = this.state;
 
     const timer = (time, reverse) =>
       play ? (
@@ -297,17 +324,22 @@ class App extends React.Component {
 
     return (
       <AppView ref={this.appRef}>
-        <Sound autoLoad={true} volume={50} url={"test.mp3"} {...soundProps} />
-        <TopView>
+        <Sound
+          autoLoad={true}
+          volume={50}
+          url={store[tuneIndex].music}
+          {...soundProps}
+        />
+        <TopView cover={store[tuneIndex].cover}>
           <RootDisc
-            size={"50vmin"}
+            size={"80vmin"}
             background={"rgb(232, 232, 232)"}
             play={play}
             angle={angleFromSeconds(this.state.duration)}
           >
-            <Disc size={"99%"}>
+            <Disc size={"99%"} cover={store[tuneIndex].cover}>
               <Disc size={"33%"} background={"rgb(64, 64, 64)"}>
-                <Disc size={"90%"} background={"rgb(232, 232, 232)"}>
+                <Disc size={"90%"} background={"rgba(232, 232, 232, .9)"}>
                   <Disc size={"25%"} background={"rgb(32, 32, 32)"} />
                 </Disc>
               </Disc>
@@ -330,11 +362,13 @@ class App extends React.Component {
               return <TimeCursor position={cursorPosition} />;
             }}
           </TickedChild>
-          <TimerView>{timer(this.state.duration)}</TimerView>
-          <RemainingView>{timer(this.state.duration, 273)}</RemainingView>
+          <TitleView>
+            {store[tuneIndex].name}
+            <TimerView>{timer(this.state.duration)}</TimerView>
+            <RemainingView>{timer(this.state.duration, 273)}</RemainingView>
+          </TitleView>
         </MiddleView>
         <BottomView>
-          <TitleView>Starboy - The weekend</TitleView>
           <HorizontalGroup>
             <Button onClick={this.handleBack}>
               <img src={PrevIcon} />
